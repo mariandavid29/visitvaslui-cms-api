@@ -65,6 +65,28 @@ exports.getSights = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.getSight = catchAsync(async (req, res, next) => {
+  // DECONSTRUCT PARAMS
+  const { slug, lang } = req.params;
+
+  // DETERMINE THE SLUG LANG
+  const slugLang = lang === 'en' ? 'slugEn' : 'slugRo';
+
+  const query = {};
+  query[slugLang] = slug;
+
+  const sight = await Sight.findOne(query);
+
+  if (!sight) return next(new AppError('The sight does not exist!', 404));
+
+  return res.status(200).json({
+    status: 'success',
+    data: {
+      sight,
+    },
+  });
+});
+
 exports.createSight = catchAsync(async (req, res, next) => {
   const newSight = await Sight.create(req.body);
   req.newSight = newSight;

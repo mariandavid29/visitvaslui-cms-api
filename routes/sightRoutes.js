@@ -14,4 +14,8 @@ router
     sightController.resizeSightImages,
   );
 
+router
+  .route('/:lang/:slug')
+  .get(authController.protect, sightController.getSight);
+
 module.exports = router;

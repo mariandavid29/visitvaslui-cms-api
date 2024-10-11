@@ -54,9 +54,19 @@ const sightSchema = new mongoose.Schema({
   },
   slugRo: {
     type: String,
+    trim: true,
+    maxlenght: [
+      100,
+      'A sight slug must have less or equal than 100 characters',
+    ],
   },
   slugEn: {
     type: String,
+    trim: true,
+    maxlenght: [
+      100,
+      'A sight slug must have less or equal than 100 characters',
+    ],
   },
   createdAt: {
     type: Date,
