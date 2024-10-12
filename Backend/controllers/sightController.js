@@ -3,6 +3,7 @@ const sharp = require('sharp');
 const catchAsync = require('../utils/catchAsync');
 const Sight = require('../models/sightModel');
 const AppError = require('../utils/appError');
+const removeFile = require('../utils/removeFile');
 
 const multerStorage = multer.memoryStorage();
 
@@ -21,40 +22,115 @@ exports.uploadSightImages = upload.fields([
   { name: 'images', maxCount: 5 },
 ]);
 
-exports.resizeSightImages = catchAsync(async (req, res, next) => {
-  if (!req.files.imageCover || !req.files.images) return next();
+exports.saveSightImages = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
 
-  req.newSight.imageCover = `sight-${req.newSight.id}-${Date.now()}-cover.jpeg`;
+  if (!req.files.imageCover && !req.files.images) return next();
 
-  await sharp(req.files.imageCover[0].buffer)
-    .resize(2000, 1333)
-    .toFormat('jpeg')
-    .jpeg({ quality: 90 })
-    .toFile(`./public/img/sights/${req.newSight.imageCover}`);
+  if (req.files.imageCover) {
+    req.imageCover = `sight-${id}-${Date.now()}-cover.jpeg`;
 
-  await Promise.all(
-    req.files.images.map((img, i) => {
-      const fileName = `sight-${req.newSight.id}-${Date.now()}-${i + 1}.jpeg`;
-      req.newSight.images.push(fileName);
-      return sharp(img.buffer)
-        .resize(2000, 1333)
-        .toFormat('jpeg')
-        .jpeg({ quality: 90 })
-        .toFile(`./public/img/sights/${fileName}`);
-    }),
-  );
+    await sharp(req.files.imageCover[0].buffer)
+      .resize(2000, 1333)
+      .toFormat('jpeg')
+      .jpeg({ quality: 90 })
+      .toFile(`./public/img/sights/${req.imageCover}`);
+  }
 
-  const updatedSight = await req.newSight.save();
+  if (req.files.images) {
+    await Promise.all(
+      req.files.images.map((img, i) => {
+        const fileName = `sight-${id}-${Date.now()}-${i + 1}.jpeg`;
 
-  return res.status(200).json({
+        req.sight.images.push(fileName);
+
+        return sharp(img.buffer)
+          .resize(2000, 1333)
+          .toFormat('jpeg')
+          .jpeg({ quality: 90 })
+          .toFile(`./public/img/sights/${fileName}`);
+      }),
+    );
+  }
+
+  return next();
+});
+
+exports.deleteSightImages = catchAsync(async (req, res, next) => {
+  const { imagesToDelete } = req.body;
+
+  if (req.imageCover) {
+    if (req.sight.imageCover)
+      await removeFile(
+        `${__dirname}/../public/img/sights`,
+        req.sight.imageCover,
+      );
+    req.sight.imageCover = req.imageCover;
+  }
+
+  if (imagesToDelete && imagesToDelete.length > 0)
+    await Promise.all(
+      imagesToDelete.map((img) =>
+        removeFile(`${__dirname}/../public/img/sights`, img),
+      ),
+    );
+  if (imagesToDelete)
+    req.sight.images = req.sight.images.filter(
+      (img) => !imagesToDelete.includes(img),
+    );
+
+  const newSight = await req.sight.save();
+
+  res.status(200).json({
     status: 'success',
     data: {
-      sight: updatedSight,
+      sight: newSight,
     },
   });
 });
 
-exports.getSights = catchAsync(async (req, res, next) => {
+exports.checkSightImages = catchAsync(async (req, res, next) => {
+  if (!req.body)
+    return next(
+      new AppError('This is not a valid payload for this request!', 400),
+    );
+  let { imagesToDelete } = req.body;
+  imagesToDelete = [];
+  if (!Array.isArray(imagesToDelete))
+    return next(
+      new AppError('This is not a valid payload for this request!', 400),
+    );
+
+  const { id } = req.params;
+  const { images } = req.files;
+
+  let imagesToDeleteNum = 0;
+  let imagesToAddNum = 0;
+
+  const query = Sight.findById(id);
+
+  const sight = await query;
+
+  if (!sight) return next(new AppError('There is no sight with this id!', 404));
+
+  if (imagesToDelete) imagesToDeleteNum = imagesToDelete.length;
+  if (images) imagesToAddNum = images.length;
+
+  if (imagesToDeleteNum > sight.images.length)
+    return next(
+      new AppError('This is not a valid payload for this request!', 400),
+    );
+
+  if (sight.images.length + imagesToAddNum - imagesToDeleteNum > 5)
+    return next(
+      new AppError('This is not a valid payload for this request!', 400),
+    );
+  req.sight = sight;
+
+  return next();
+});
+
+exports.getAllSights = catchAsync(async (req, res, next) => {
   const sights = await Sight.find({});
 
   res.status(200).json({
@@ -65,7 +141,7 @@ exports.getSights = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.getSight = catchAsync(async (req, res, next) => {
+exports.getSightBySlug = catchAsync(async (req, res, next) => {
   // DECONSTRUCT PARAMS
   const { slug, lang } = req.params;
 
@@ -87,8 +163,40 @@ exports.getSight = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.getSight = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+
+  const sight = await Sight.findById(id);
+
+  return res.status(200).json({
+    status: 'success',
+    data: {
+      sight,
+    },
+  });
+});
+
 exports.createSight = catchAsync(async (req, res, next) => {
   const newSight = await Sight.create(req.body);
-  req.newSight = newSight;
-  next();
+  res.status(200).json({
+    status: 'success',
+    data: {
+      sight: newSight,
+    },
+  });
+});
+
+exports.updateSight = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+  const updatedSight = await Sight.findOneAndUpdate(id, req.body, {
+    runValidators: true,
+    new: true,
+  });
+
+  return res.status(200).json({
+    status: 'success',
+    data: {
+      sight: updatedSight,
+    },
+  });
 });

@@ -6,16 +6,26 @@ const router = express.Router();
 
 router
   .route('/')
-  .get(authController.protect, sightController.getSights)
-  .post(
-    authController.protect,
-    sightController.uploadSightImages,
-    sightController.createSight,
-    sightController.resizeSightImages,
-  );
+  .get(authController.protect, sightController.getAllSights)
+  .post(authController.protect, sightController.createSight);
 
 router
   .route('/:lang/:slug')
-  .get(authController.protect, sightController.getSight);
+  .get(authController.protect, sightController.getSightBySlug);
+
+router
+  .route('/:id')
+  .get(authController.protect, sightController.getSight)
+  .patch(authController.protect, sightController.updateSight);
+
+router
+  .route('/:id/imgs')
+  .patch(
+    authController.protect,
+    sightController.uploadSightImages,
+    sightController.checkSightImages,
+    sightController.saveSightImages,
+    sightController.deleteSightImages,
+  );
 
 module.exports = router;
