@@ -68,16 +68,17 @@ exports.deleteSightImages = catchAsync(async (req, res, next) => {
     req.sight.imageCover = req.imageCover;
   }
 
-  if (imagesToDelete && imagesToDelete.length > 0)
+  if (imagesToDelete && req.imagesToDeleteNum > 0) {
     await Promise.all(
       imagesToDelete.map((img) =>
         removeFile(`${__dirname}/../public/img/sights`, img),
       ),
     );
-  if (imagesToDelete)
+
     req.sight.images = req.sight.images.filter(
       (img) => !imagesToDelete.includes(img),
     );
+  }
 
   const newSight = await req.sight.save();
 
@@ -94,8 +95,9 @@ exports.checkSightImages = catchAsync(async (req, res, next) => {
     return next(
       new AppError('This is not a valid payload for this request!', 400),
     );
-  let { imagesToDelete } = req.body;
-  imagesToDelete = [];
+
+  const { imagesToDelete } = req.body;
+
   if (!Array.isArray(imagesToDelete))
     return next(
       new AppError('This is not a valid payload for this request!', 400),
@@ -104,8 +106,8 @@ exports.checkSightImages = catchAsync(async (req, res, next) => {
   const { id } = req.params;
   const { images } = req.files;
 
-  let imagesToDeleteNum = 0;
-  let imagesToAddNum = 0;
+  req.imagesToDeleteNum = 0;
+  req.imagesToAddNum = 0;
 
   const query = Sight.findById(id);
 
@@ -113,18 +115,19 @@ exports.checkSightImages = catchAsync(async (req, res, next) => {
 
   if (!sight) return next(new AppError('There is no sight with this id!', 404));
 
-  if (imagesToDelete) imagesToDeleteNum = imagesToDelete.length;
-  if (images) imagesToAddNum = images.length;
+  if (imagesToDelete) req.imagesToDeleteNum = imagesToDelete.length;
+  if (images) req.imagesToAddNum = images.length;
 
-  if (imagesToDeleteNum > sight.images.length)
+  if (req.imagesToDeleteNum > sight.images.length)
     return next(
       new AppError('This is not a valid payload for this request!', 400),
     );
 
-  if (sight.images.length + imagesToAddNum - imagesToDeleteNum > 5)
+  if (sight.images.length + req.imagesToAddNum - req.imagesToDeleteNum > 5)
     return next(
       new AppError('This is not a valid payload for this request!', 400),
     );
+
   req.sight = sight;
 
   return next();
