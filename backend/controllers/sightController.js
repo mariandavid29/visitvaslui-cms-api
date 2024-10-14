@@ -1,15 +1,18 @@
 const multer = require('multer');
 const sharp = require('sharp');
-const catchAsync = require('../utils/catchAsync');
 const Sight = require('../models/sightModel');
 const AppError = require('../utils/appError');
 const removeFile = require('../utils/removeFile');
+const catchAsync = require('../utils/catchAsync');
 
 const multerStorage = multer.memoryStorage();
 
 const multerFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image')) cb(null, true);
-  else cb(new AppError('Not an image! Please upload only images', 400), false);
+  if (file.mimetype.startsWith('image')) {
+    cb(null, true);
+  } else {
+    cb(new AppError('Not an image! Please upload only images', 400), false);
+  }
 };
 
 const upload = multer({
@@ -45,10 +48,16 @@ exports.checkSightImages = catchAsync(async (req, res, next) => {
 
   const sight = await query;
 
-  if (!sight) return next(new AppError('There is no sight with this id!', 404));
+  if (!sight) {
+    return next(new AppError('There is no sight with this id!', 404));
+  }
 
-  if (imagesToDelete) req.imagesToDeleteNum = imagesToDelete.length;
-  if (images) req.imagesToAddNum = images.length;
+  if (imagesToDelete) {
+    req.imagesToDeleteNum = imagesToDelete.length;
+  }
+  if (images) {
+    req.imagesToAddNum = images.length;
+  }
 
   if (req.imagesToDeleteNum > sight.images.length) {
     return next(
@@ -70,7 +79,9 @@ exports.checkSightImages = catchAsync(async (req, res, next) => {
 exports.saveSightImages = catchAsync(async (req, res, next) => {
   const { id } = req.params;
 
-  if (!req.files.imageCover && !req.files.images) return next();
+  if (!req.files.imageCover && !req.files.images) {
+    return next();
+  }
 
   if (req.files.imageCover) {
     req.imageCover = `sight-${id}-${Date.now()}-cover.jpeg`;
@@ -105,11 +116,12 @@ exports.deleteSightImages = catchAsync(async (req, res, next) => {
   const { imagesToDelete } = req.body;
 
   if (req.imageCover) {
-    if (req.sight.imageCover)
+    if (req.sight.imageCover) {
       await removeFile(
         `${__dirname}/../public/img/sights`,
         req.sight.imageCover,
       );
+    }
     req.sight.imageCover = req.imageCover;
   }
 
@@ -158,7 +170,9 @@ exports.getSightBySlug = catchAsync(async (req, res, next) => {
 
   const sight = await Sight.findOne(query);
 
-  if (!sight) return next(new AppError('The sight does not exist!', 404));
+  if (!sight) {
+    return next(new AppError('The sight does not exist!', 404));
+  }
 
   return res.status(200).json({
     status: 'success',
