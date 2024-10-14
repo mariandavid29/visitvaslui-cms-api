@@ -1,7 +1,9 @@
 const multer = require('multer');
-const sharp = require('sharp');
+const { v4: uuidv4 } = require('uuid');
+const path = require('node:path');
 const Sight = require('../models/sightModel');
 const AppError = require('../utils/appError');
+const saveImg = require('../utils/saveImg');
 const removeFile = require('../utils/removeFile');
 const catchAsync = require('../utils/catchAsync');
 
@@ -25,87 +27,26 @@ exports.uploadSightImages = upload.fields([
   { name: 'images', maxCount: 5 },
 ]);
 
-exports.checkSightImages = catchAsync(async (req, res, next) => {
-  if (!req.body) {
-    return next(
-      new AppError('This is not a valid payload for this request!', 400),
-    );
-  }
-
-  const { imagesToDelete } = req.body;
-
-  if (!Array.isArray(imagesToDelete)) {
-    return next(new AppError('ImagesToDelete needs to be an array!', 400));
-  }
-
-  const { id } = req.params;
-  const { images } = req.files;
-
-  req.imagesToDeleteNum = 0;
-  req.imagesToAddNum = 0;
-
-  const query = Sight.findById(id);
-
-  const sight = await query;
-
-  if (!sight) {
-    return next(new AppError('There is no sight with this id!', 404));
-  }
-
-  if (imagesToDelete) {
-    req.imagesToDeleteNum = imagesToDelete.length;
-  }
-  if (images) {
-    req.imagesToAddNum = images.length;
-  }
-
-  if (req.imagesToDeleteNum > sight.images.length) {
-    return next(
-      new AppError('This is not a valid payload for this request!', 400),
-    );
-  }
-
-  if (sight.images.length + req.imagesToAddNum - req.imagesToDeleteNum > 5) {
-    return next(
-      new AppError('This is not a valid payload for this request!', 400),
-    );
-  }
-
-  req.sight = sight;
-
-  return next();
-});
-
 exports.saveSightImages = catchAsync(async (req, res, next) => {
-  const { id } = req.params;
-
   if (!req.files.imageCover && !req.files.images) {
     return next();
   }
 
   if (req.files.imageCover) {
-    req.imageCover = `sight-${id}-${Date.now()}-cover.jpeg`;
-
-    await sharp(req.files.imageCover[0].buffer)
-      .resize(2000, 1333)
-      .toFormat('jpeg')
-      .jpeg({ quality: 90 })
-      .toFile(`./public/img/sights/${req.imageCover}`);
+    req.imageCover = `sight-${uuidv4()}-cover.jpeg`;
+    const imagePath = path.join(__basedir, '/public/img/sights', req.imageCover);
+    await saveImg(req.files.imageCover[0].buffer, imagePath);
   }
 
   if (req.files.images) {
     await Promise.all(
-      req.files.images.map((img, i) => {
-        const fileName = `sight-${id}-${Date.now()}-${i + 1}.jpeg`;
-
+      req.files.images.map(img => {
+        const fileName = `sight-${uuidv4()}-extra.jpeg`;
         req.sight.images.push(fileName);
 
-        return sharp(img.buffer)
-          .resize(2000, 1333)
-          .toFormat('jpeg')
-          .jpeg({ quality: 90 })
-          .toFile(`./public/img/sights/${fileName}`);
-      }),
+        const imagePath = path.join(__basedir, '/public/img/sights', fileName);
+        return saveImg(img.buffer, imagePath);
+      })
     );
   }
 
@@ -117,24 +58,21 @@ exports.deleteSightImages = catchAsync(async (req, res, next) => {
 
   if (req.imageCover) {
     if (req.sight.imageCover) {
-      await removeFile(
-        `${__dirname}/../public/img/sights`,
-        req.sight.imageCover,
-      );
+      const imagePath = path.join(__basedir, '/public/img/sights', req.sight.imageCover);
+      await removeFile(imagePath);
     }
     req.sight.imageCover = req.imageCover;
   }
 
-  if (imagesToDelete && req.imagesToDeleteNum > 0) {
+  if (req.imagesToDeleteNum > 0) {
     await Promise.all(
-      imagesToDelete.map((img) =>
-        removeFile(`${__dirname}/../public/img/sights`, img),
-      ),
+      imagesToDelete.map(img => {
+        const imagePath = path.join(__basedir, 'public/img/sights', img);
+        return removeFile(imagePath);
+      })
     );
 
-    req.sight.images = req.sight.images.filter(
-      (img) => !imagesToDelete.includes(img),
-    );
+    req.sight.images = req.sight.images.filter(img => !imagesToDelete.includes(img));
   }
 
   const newSight = await req.sight.save();

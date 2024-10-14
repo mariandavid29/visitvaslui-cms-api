@@ -1,7 +1,8 @@
+/* eslint-disable no-console */
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 
-process.on('uncaughtException', (err) => {
+process.on('uncaughtException', err => {
   console.log('UNCAUGHT EXCEPTION! 💥 Shutting down...');
   console.log(err.name, err.message);
   process.exit(1);
@@ -9,10 +10,9 @@ process.on('uncaughtException', (err) => {
 
 dotenv.config({ path: './config.env' });
 
-const DB = process.env.DATABASE.replace(
-  '<PASSWORD>',
-  process.env.DATABASE_PASSWORD,
-);
+global.__basedir = __dirname;
+
+const DB = process.env.DATABASE.replace('<PASSWORD>', process.env.DATABASE_PASSWORD);
 
 const app = require('./app');
 
@@ -26,7 +26,7 @@ const server = app.listen(port, () => {
   console.log(`App running on port ${port}...`);
 });
 
-process.on('unhandledRejection', (err) => {
+process.on('unhandledRejection', err => {
   console.log('UNHANDLED REJECTION! 💥 Shutting down...');
   console.log(err.name, err.message);
   server.close(() => {

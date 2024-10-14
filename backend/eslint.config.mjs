@@ -15,6 +15,7 @@ export default [
         ...globals.browser,
         ...globals.node,
         console: 'readonly',
+        __basedir: 'writable',
       },
     },
     plugins: {

@@ -1,6 +1,7 @@
 const express = require('express');
 const sightController = require('../controllers/sightController');
 const authController = require('../controllers/authController');
+const validationController = require('../controllers/validationController');
 
 const router = express.Router();
 
@@ -9,9 +10,7 @@ router
   .get(authController.protect, sightController.getAllSights)
   .post(authController.protect, sightController.createSight);
 
-router
-  .route('/:lang/:slug')
-  .get(authController.protect, sightController.getSightBySlug);
+router.route('/:lang/:slug').get(authController.protect, sightController.getSightBySlug);
 
 router
   .route('/:id')
@@ -23,9 +22,9 @@ router
   .patch(
     authController.protect,
     sightController.uploadSightImages,
-    sightController.checkSightImages,
+    validationController.checkSightImages,
     sightController.saveSightImages,
-    sightController.deleteSightImages,
+    sightController.deleteSightImages
   );
 
 module.exports = router;
