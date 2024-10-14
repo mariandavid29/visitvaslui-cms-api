@@ -22,6 +22,51 @@ exports.uploadSightImages = upload.fields([
   { name: 'images', maxCount: 5 },
 ]);
 
+exports.checkSightImages = catchAsync(async (req, res, next) => {
+  if (!req.body) {
+    return next(
+      new AppError('This is not a valid payload for this request!', 400),
+    );
+  }
+
+  const { imagesToDelete } = req.body;
+
+  if (!Array.isArray(imagesToDelete)) {
+    return next(new AppError('ImagesToDelete needs to be an array!', 400));
+  }
+
+  const { id } = req.params;
+  const { images } = req.files;
+
+  req.imagesToDeleteNum = 0;
+  req.imagesToAddNum = 0;
+
+  const query = Sight.findById(id);
+
+  const sight = await query;
+
+  if (!sight) return next(new AppError('There is no sight with this id!', 404));
+
+  if (imagesToDelete) req.imagesToDeleteNum = imagesToDelete.length;
+  if (images) req.imagesToAddNum = images.length;
+
+  if (req.imagesToDeleteNum > sight.images.length) {
+    return next(
+      new AppError('This is not a valid payload for this request!', 400),
+    );
+  }
+
+  if (sight.images.length + req.imagesToAddNum - req.imagesToDeleteNum > 5) {
+    return next(
+      new AppError('This is not a valid payload for this request!', 400),
+    );
+  }
+
+  req.sight = sight;
+
+  return next();
+});
+
 exports.saveSightImages = catchAsync(async (req, res, next) => {
   const { id } = req.params;
 
@@ -88,49 +133,6 @@ exports.deleteSightImages = catchAsync(async (req, res, next) => {
       sight: newSight,
     },
   });
-});
-
-exports.checkSightImages = catchAsync(async (req, res, next) => {
-  if (!req.body)
-    return next(
-      new AppError('This is not a valid payload for this request!', 400),
-    );
-
-  const { imagesToDelete } = req.body;
-
-  if (!Array.isArray(imagesToDelete))
-    return next(
-      new AppError('This is not a valid payload for this request!', 400),
-    );
-
-  const { id } = req.params;
-  const { images } = req.files;
-
-  req.imagesToDeleteNum = 0;
-  req.imagesToAddNum = 0;
-
-  const query = Sight.findById(id);
-
-  const sight = await query;
-
-  if (!sight) return next(new AppError('There is no sight with this id!', 404));
-
-  if (imagesToDelete) req.imagesToDeleteNum = imagesToDelete.length;
-  if (images) req.imagesToAddNum = images.length;
-
-  if (req.imagesToDeleteNum > sight.images.length)
-    return next(
-      new AppError('This is not a valid payload for this request!', 400),
-    );
-
-  if (sight.images.length + req.imagesToAddNum - req.imagesToDeleteNum > 5)
-    return next(
-      new AppError('This is not a valid payload for this request!', 400),
-    );
-
-  req.sight = sight;
-
-  return next();
 });
 
 exports.getAllSights = catchAsync(async (req, res, next) => {
