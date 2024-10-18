@@ -15,7 +15,8 @@ router.route('/:lang/:slug').get(authController.protect, sightController.getSigh
 router
   .route('/:id')
   .get(authController.protect, sightController.getSight)
-  .patch(authController.protect, sightController.updateSight);
+  .patch(authController.protect, sightController.updateSight)
+  .delete(authController.protect, sightController.deleteSight);
 
 router
   .route('/:id/imgs')

@@ -157,3 +157,36 @@ exports.updateSight = catchAsync(async (req, res, next) => {
     },
   });
 });
+
+exports.deleteSight = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+  const query = Sight.findOneAndDelete({ _id: id });
+  query.select('imageCover images');
+
+  const sightImages = await query;
+
+  if (!sightImages) {
+    return next(new AppError('A sight with this id does not exist!', 404));
+  }
+
+  if (sightImages.imageCover) {
+    const imageCoverPath = path.join(
+      __basedir,
+      '/public/img/sights',
+      sightImages.imageCover
+    );
+    await removeFile(imageCoverPath);
+  }
+
+  await Promise.all(
+    sightImages.images.map(img => {
+      const imgPath = path.join(__basedir, '/public/img/sights', img);
+      return removeFile(imgPath);
+    })
+  );
+
+  return res.status(204).json({
+    status: 'success',
+    data: {},
+  });
+});
